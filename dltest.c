@@ -10,7 +10,7 @@
 void printinfo(const char* restrict name, void* handle)
 {
 #define assert_not(stmt, what) \
-    do { if ((what) == (stmt)) { return; } } while (0) 
+    do { if ((what) == (stmt)) { return; } } while (0)
 #define assert_not_do(stmt, what, dothing) \
     do { if ((what) == (stmt)) { dothing; return; } } while (0)
 
@@ -48,14 +48,54 @@ void* checkdl(const char* restrict name, const char* restrict path)
     return dlhandle;
 }
 
+void checksym(const char* restrict symbol, void* handle)
+{
+    printf("\t\t [in %p] ", handle);
+
+    void* fun = dlsym(handle, symbol);
+    if (fun) { // such fun
+        Dl_info info;
+        if (!dladdr(fun, &info)) {
+            printf("no info found on %s\n", symbol);
+            return;
+        }
+        if (info.dli_saddr == NULL) {
+            printf("%s somehow not really found \n", symbol);
+            return;
+        }
+        printf("%s[%p] resides in %s\n", symbol, fun, info.dli_fname);
+    } else {
+        printf("%s not found here\n", symbol);
+    }
+}
+
+void checksym_and_close(void* handle)
+{
+    if (handle) {
+        checksym("printf", handle);
+        checksym("lseek", handle);
+        dlclose(handle);
+    }
+}
 
 int main(void)
 {
 
+    checksym("printf", RTLD_DEFAULT);
+    checksym("lseek", RTLD_DEFAULT);
+
     void* self = checkdl("Self", NULL);
+    checksym_and_close(self);
+
     void* libc = checkdl("libc", "libc");
+    checksym_and_close(libc);
+
     void* libcso = checkdl("libc so", "libc.so");
+    checksym_and_close(libcso);
+
     void* libcso6 = checkdl("libc so6", "libc.so.6");
+    checksym_and_close(libcso6);
+
 
     return EX_OK;
 }
